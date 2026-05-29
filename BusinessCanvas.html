@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Business Governance Cockpit v4</title>
+<style>
+    body { background: #060e10; color: #00d8f0; font-family: sans-serif; margin: 0; padding: 20px; }
+   .cockpit { max-width: 1280px; margin: auto; }
+   .header { text-align: center; margin-bottom: 20px; }
+   .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+   .node-box { background: #0a161a; border: 1px solid #1a2a30; padding: 16px; border-radius: 12px; text-align: center; position: relative; }
+   .label { font-size: 0.78em; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #9fddea; }
+   .gauge { width: 100%; height: 105px; }
+   .value { font-size: 1.12em; font-weight: bold; margin-top: 6px; color: #bfeff7; }
+    #bezos-feedback { background: #0a161a; padding: 18px; border-radius: 12px; border: 1px solid #2d454a; min-height: 120px; margin-top: 20px; font-family: monospace; white-space: pre-wrap; line-height: 1.45; color: #bfeff7; }
+    #matrix-status { position: absolute; top: 10px; right: 20px; font-size: 0.8em; color: #ff3366; }
+</style>
+</head>
+<body>
+<div class="cockpit">
+    <div class="header">
+        <h2>Business Health Cockpit</h2>
+        <div id="matrix-status">Matrix: Local Fallback</div>
+        <div id="coherence" style="font-size:1.25em; color:#00ff88;">System Coherence: 0.00</div>
+    </div>
+    <div class="row" id="row1"></div>
+    <div class="row" id="row2"></div>
+    <div class="row" id="row3"></div>
+    <div style="background:#0a161a; padding:16px; border-radius:12px; border:1px solid #1a2a30; margin-top:20px;">
+        <div style="font-size:0.9em; margin-bottom:12px; color:#9fddea; text-transform:uppercase; letter-spacing:0.5px;">Real-World Drivers</div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>Customer Demand</span><span id="val-demand">0.50</span></div><input type="range" id="ex-demand" min="0" max="1" step="0.01" value="0.5" style="width:100%"></div>
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>Input Inflation</span><span id="val-inflation">0.30</span></div><input type="range" id="ex-inflation" min="0" max="1" step="0.01" value="0.3" style="width:100%"></div>
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>Cost of Capital</span><span id="val-rates">0.40</span></div><input type="range" id="ex-rates" min="0" max="1" step="0.01" value="0.4" style="width:100%"></div>
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>Tax & Reg</span><span id="val-tax">0.20</span></div><input type="range" id="ex-tax" min="0" max="1" step="0.01" value="0.2" style="width:100%"></div>
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>Competition</span><span id="val-competition">0.30</span></div><input type="range" id="ex-competition" min="0" max="1" step="0.01" value="0.3" style="width:100%"></div>
+            <div><div style="display:flex; justify-content:space-between; font-size:0.75em; margin-bottom:4px;"><span>External Shock</span><span id="val-shock">0.10</span></div><input type="range" id="ex-shock" min="0" max="1" step="0.01" value="0.1" style="width:100%"></div>
+        </div>
+    </div>
+    <h3>Governance Feed (Bezos Auditor)</h3>
+    <div id="bezos-feedback">System ready. Adjust the six real-world drivers below...</div>
+</div>
+<script>
+const nodes = [
+    {id:0, name:"Solution", color:"#00d8f0", baseline:0.78},
+    {id:1, name:"Revenue", color:"#ffd700", baseline:0.82},
+    {id:2, name:"Cost", color:"#ff6b00", baseline:0.42},
+    {id:3, name:"Advantage", color:"#9b4dff", baseline:0.72},
+    {id:4, name:"Capital Reserve", color:"#00ff88", baseline:0.85},
+    {id:5, name:"Market Liquidity", color:"#00b4d8", baseline:0.68},
+    {id:6, name:"Customer Retention", color:"#44dd88", baseline:0.75},
+    {id:7, name:"Brand Velocity", color:"#ff8800", baseline:0.70},
+    {id:8, name:"Solution-Market Fit",color:"#ff3366", baseline:0.25},
+    {id:9, name:"Revenue Pressure", color:"#ffaa00", baseline:0.28},
+    {id:10, name:"Cost Pressure", color:"#ff6600", baseline:0.20},
+    {id:11, name:"Advantage Erosion", color:"#cc33ff", baseline:0.32}
+];
+
+let values = nodes.map(n => n.baseline);
+let W = Array(12).fill(0).map(() => Array(12).fill(0));
+let lastAuditTime = 0;
+let coherenceThreshold = 0.68;
+
+// W initialized to zeros - will be filled from DB
+
+// === REAL-WORLD EXTERNALS ===
+const externals = { demand:0.5, inflation:0.3, rates:0.4, tax:0.2, competition:0.3, shock:0.1 };
+const E = {
+  0:{demand:0.20}, 1:{demand:0.60, competition:-0.40}, 2:{inflation:0.70, tax:0.30},
+  3:{competition:-0.25}, 4:{rates:-0.50, demand:0.15}, 5:{rates:-0.30},
+  6:{demand:0.40, shock:-0.50}, 7:{demand:0.30, competition:-0.20},
+  8:{demand:0.25}, 9:{competition:0.50, demand:-0.20},
+  10:{inflation:0.50, tax:0.30}, 11:{competition:0.40, shock:0.20}
+};
+
+document.querySelectorAll('[id^="ex-"]').forEach(s => {
+  s.addEventListener('input', e => {
+    const key = e.target.id.replace('ex-','');
+    externals[key] = parseFloat(e.target.value);
+    document.getElementById('val-'+key).textContent = externals[key].toFixed(2);
+  });
+});
+
+fetch('http://localhost:5000/get-matrix')
+   .then(r => r.json())
+   .then(data => {
+        if(data.matrix && data.matrix.length === 12) {
+            W = data.matrix; // use DB directly
+            document.getElementById('matrix-status').textContent = `Matrix: DB (${data.count} links)`;
+            document.getElementById('matrix-status').style.color = "#00ff88";
+        } else {
+            document.getElementById('matrix-status').textContent = "Matrix: Offline";
+        }
+    }).catch(e=>console.log("Using local physics"));
+
+fetch('http://localhost:5000/get-thresholds')
+   .then(r=>r.json())
+   .then(d=>{ if(d.coherence_threshold){ coherenceThreshold = d.coherence_threshold; console.log("Threshold loaded:",coherenceThreshold.toFixed(2)); }})
+   .catch(e=>console.log("Using default threshold"));
+
+function createGauge(node){ const div=document.createElement('div'); div.className='node-box'; div.innerHTML=`<div class="label">${node.name}</div><svg class="gauge" viewBox="0 0 100 60"><path d="M20 50 Q50 18 80 50" fill="none" stroke="#1a2a30" stroke-width="16" stroke-linecap="round"/><line id="needle-${node.id}" x1="50" y1="50" x2="50" y2="20" stroke="${node.color}" stroke-width="4" stroke-linecap="round"/></svg><div class="value" id="value-${node.id}">0.00</div>`; return div;}
+document.getElementById('row1').append(...nodes.slice(0,4).map(n=>createGauge(n)));
+document.getElementById('row2').append(...nodes.slice(4,8).map(n=>createGauge(n)));
+document.getElementById('row3').append(...nodes.slice(8,12).map(n=>createGauge(n)));
+
+setInterval(()=>{
+  let v_target = nodes.map((node,i)=>{
+    let ext=0; const w=E[i]||{}; for(const [k,v] of Object.entries(w)) ext+= v*(externals[k]-0.5);
+    return Math.max(0,Math.min(1, node.baseline + ext*0.65));
+  });
+  let coupled = new Array(12).fill(0);
+  for(let to=0; to<12; to++) for(let from=0; from<12; from++){
+    let delta = values[from]-nodes[from].baseline;
+    coupled[to] += (W[to][from]*0.20)*delta;
+  }
+  // update core nodes 0-7 with physics
+  for(let i=0; i<8; i++){
+    let networkForce = coupled[i];
+    let springForce = (v_target[i]-values[i])*0.15;
+    values[i] += (networkForce+springForce)*0.22;
+    values[i]=Math.max(0,Math.min(1,values[i]));
+  }
+  // gap nodes 8-11 are emergent diagnostics, not driven
+  values[8] = Math.max(0, Math.min(1, 1 - Math.abs(values[0] - values[5]) * 1.2)); // SMF = alignment
+  values[9] = Math.max(0, Math.min(1, (values[2] - values[1] + 1) / 2)); // Revenue Pressure
+  values[10] = Math.max(0, Math.min(1, values[2]*0.6 + externals.inflation*0.4)); // Cost Pressure
+  values[11] = Math.max(0, Math.min(1, 1 - values[3]*0.8 - values[7]*0.2)); // Advantage Erosion
+
+  // update all gauges
+  nodes.forEach((node,i)=>{
+    const angle=(values[i]*140)-70;
+    document.getElementById(`needle-${node.id}`).setAttribute('transform',`rotate(${angle} 50 50)`);
+    document.getElementById(`value-${node.id}`).textContent=values[i].toFixed(2);
+  });
+  const core=values.slice(0,8); const mean=core.reduce((a,b)=>a+b,0)/8;
+  const variance=core.reduce((s,v)=>s+(v-mean)*(v-mean),0)/8;
+  const coherence=Math.max(0,Math.min(1,1-Math.sqrt(variance)*1.8));
+  document.getElementById('coherence').textContent='System Coherence: '+coherence.toFixed(2);
+  document.getElementById('coherence').style.color=coherence<coherenceThreshold?'#ff3366':'#00ff88';
+  if(coherence<coherenceThreshold && Date.now()-lastAuditTime>6000){
+    lastAuditTime=Date.now();
+    fetch('http://localhost:5000/audit-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coherence,values})})
+      .then(r=>r.json()).then(d=>{if(d.status==='audited')document.getElementById('bezos-feedback').textContent=`NODE ${d.target_node} FLAGGED
+Coherence: ${coherence.toFixed(3)}
+
+${d.verdict}`;}).catch(()=>{});
+  }
+},45);
+</script>
+</body>
+</html>
