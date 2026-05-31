@@ -20,3 +20,24 @@ Our diagnostic engine has been back-tested against historical and systemic failu
 * **Agentic Governance ("Bezos Auditor")**: An integrated AI auditor that provides explainable, citeable diagnostics for structural risk.
 * **Environmental Stress-Testing**: Simulate your business model against varying external regimes (macroeconomic shocks, competitive pressure, resource depletion).
 * **High-Performance Engine**: A hybrid C++/Python stack designed for real-time observability in high-stakes environments.
+
+## 🚀 Quick Start
+
+1. **Clone the repository:**
+```bash
+   git clone https://github.com/Terry2023/kyber-canvas.git
+   cd kyber-canvas
+```
+
+2. **Install dependencies:**
+```bash
+   pip install -r requirements.txt
+```
+
+3. **Start the backend:**
+```bash
+   python app.py
+```
+
+4. **Access the dashboard:**
+   Open `BusinessCanvas.html` in your browser.
